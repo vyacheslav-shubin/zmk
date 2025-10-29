@@ -202,34 +202,32 @@ static void zmk_rgb_underglow_effect_my(void) {
 static uint8_t pressed_state[STRIP_NUM_PIXELS] = {0};
 
 static void zmk_rgb_underglow_effect_pressed(void) {
-    struct led_rgb rgb = {0};
-    // if (state.animation_step==0) {
-    //     memset(pressed_state, 0, sizeof(pressed_state));
-    //     state.animation_step = 1;
-    // } else {
+    if (state.animation_step==0) {
+        memset(pressed_state, 0, sizeof(pressed_state));
+        state.animation_step = 1;
+    } else {
         struct zmk_led_hsb hsb;
         for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
+            struct  led_rgb * current = &pixels[i];
             if (pressed_state[i]>0) {
-                hsb.s = 255;
-                hsb.b = pressed_state[i] & 0x7F;
-                hsb.h = 0;
-                rgb = hsb_to_rgb(hsb_scale_min_max(hsb));
-                if ((pressed_state[i] & 0x80) == 0)
-                    pressed_state[i] = pressed_state[i] >> 1;
-                // rgb.g = 0;
-                // rgb.b = 0;
-                // rgb.r = pressed_state[i];
+                if ((pressed_state[i] & 0x80) == 0) {
+                    hsb.s = 255;
+                    hsb.b = pressed_state[i] & 0x7F;
+                    hsb.h = 0;
+                    *current = hsb_to_rgb(hsb_scale_min_max(hsb));
+                    pressed_state[i] >>= 1;
+                } else {
+                    current->r = 0;
+                    current->g = 16;
+                    current->b = 0;
+                }
             } else {
-                rgb.r = 0;
-                rgb.g = 0;
-                rgb.b = 0;
+                current->r = 0;
+                current->g = 0;
+                current->b = 0;
             }
-            pixels[i] = rgb;
         }
-    //}
-    // for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
-    //     pixels[i] = rgb; 
-    // }
+    }
 }
 
 

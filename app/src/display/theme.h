@@ -5,7 +5,6 @@
  */
 
 #pragma once
-
 #include <lvgl.h>
 
 #if defined(CONFIG_ZMK_LV_FONT_DEFAULT_SMALL_MONTSERRAT_8)

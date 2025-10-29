@@ -55,15 +55,37 @@ lv_obj_t *zmk_display_status_screen() {
 #endif
 
 #if IS_ENABLED(CONFIG_ZMK_WIDGET_LAYER_STATUS)
+    
     zmk_widget_layer_status_init(&layer_status_widget, screen);
-    lv_obj_set_style_text_font(zmk_widget_layer_status_obj(&layer_status_widget),
-                               lv_theme_get_font_small(screen), LV_PART_MAIN);
-    lv_obj_align(zmk_widget_layer_status_obj(&layer_status_widget), LV_ALIGN_BOTTOM_LEFT, 0, 0);
+
+    lv_obj_set_style_text_font(
+        layer_status_widget.obj,
+        lv_theme_get_font_small(screen), 
+        LV_PART_MAIN
+    );
+    lv_obj_align(
+        layer_status_widget.obj,
+        LV_ALIGN_BOTTOM_RIGHT, 
+        0, 
+        0
+    );
 #endif
 
 #if IS_ENABLED(CONFIG_ZMK_WIDGET_WPM_STATUS)
     zmk_widget_wpm_status_init(&wpm_status_widget, screen);
-    lv_obj_align(zmk_widget_wpm_status_obj(&wpm_status_widget), LV_ALIGN_BOTTOM_RIGHT, 0, 0);
+
+    lv_obj_set_style_text_font(
+        wpm_status_widget.obj,
+        lv_theme_get_font_small(screen), 
+        LV_PART_MAIN
+    );
+
+    lv_obj_align(
+        wpm_status_widget.obj, 
+        LV_ALIGN_BOTTOM_LEFT, 
+        0, 
+        0
+    );
 #endif
     return screen;
 }
