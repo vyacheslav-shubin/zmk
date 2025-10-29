@@ -680,6 +680,11 @@ int zmk_keymap_reset_settings(void) { return -ENOTSUP; }
 
 #endif // IS_ENABLED(CONFIG_ZMK_KEYMAP_SETTINGS_STORAGE)
 
+
+extern void kscan_underglow_callback(const uint32_t row, const uint32_t column, const bool pressed);
+
+
+
 int zmk_keymap_apply_position_state(uint8_t source, zmk_keymap_layer_id_t layer_id,
                                     uint32_t position, bool pressed, int64_t timestamp) {
     const struct zmk_behavior_binding *binding =

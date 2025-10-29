@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include <stdint.h>
 #define DT_DRV_COMPAT zmk_kscan_sideband_behaviors
 
 #include <zephyr/device.h>

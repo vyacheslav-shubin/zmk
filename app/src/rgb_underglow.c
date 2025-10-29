@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include <stdint.h>
+#include <string.h>
 #include <zephyr/device.h>
 #include <zephyr/init.h>
 #include <zephyr/kernel.h>
@@ -25,7 +27,8 @@
 #include <zmk/events/activity_state_changed.h>
 #include <zmk/events/usb_conn_state_changed.h>
 #include <zmk/workqueue.h>
-
+#include <zmk/keymap.h>
+#include <zmk/events/keycode_state_changed.h>
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #if !DT_HAS_CHOSEN(zmk_underglow)
@@ -44,11 +47,15 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 BUILD_ASSERT(CONFIG_ZMK_RGB_UNDERGLOW_BRT_MIN <= CONFIG_ZMK_RGB_UNDERGLOW_BRT_MAX,
              "ERROR: RGB underglow maximum brightness is less than minimum brightness");
 
+
 enum rgb_underglow_effect {
     UNDERGLOW_EFFECT_SOLID,
     UNDERGLOW_EFFECT_BREATHE,
     UNDERGLOW_EFFECT_SPECTRUM,
     UNDERGLOW_EFFECT_SWIRL,
+    UNDERGLOW_EFFECT_MY,
+    UNDERGLOW_EFFECT_PRESSED,
+    UNDERGLOW_EFFECT_NONE,
     UNDERGLOW_EFFECT_NUMBER // Used to track number of underglow effects
 };
 
@@ -175,6 +182,64 @@ static void zmk_rgb_underglow_effect_swirl(void) {
     state.animation_step = state.animation_step % HUE_MAX;
 }
 
+static void zmk_rgb_underglow_effect_my(void) {
+    const uint8_t value = (CONFIG_ZMK_RGB_UNDERGLOW_BRT_MIN +
+                           (CONFIG_ZMK_RGB_UNDERGLOW_BRT_MAX - CONFIG_ZMK_RGB_UNDERGLOW_BRT_MIN)) *
+                          2.55;
+    state.animation_step = (state.animation_step + 1) % 20;
+    if (!state.animation_step) {
+        for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
+            struct led_rgb rgb = {0};
+            uint8_t v = rand() % 8;
+            rgb.r = (v & 1) ? value : 0;
+            rgb.g = (v & 2) ? value : 0;
+            rgb.b = (v & 4) ? value : 0;
+            pixels[i] = rgb;
+        }
+    }
+}
+
+static uint8_t pressed_state[STRIP_NUM_PIXELS] = {0};
+
+static void zmk_rgb_underglow_effect_pressed(void) {
+    struct led_rgb rgb = {0};
+    // if (state.animation_step==0) {
+    //     memset(pressed_state, 0, sizeof(pressed_state));
+    //     state.animation_step = 1;
+    // } else {
+        struct zmk_led_hsb hsb;
+        for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
+            if (pressed_state[i]>0) {
+                hsb.s = 255;
+                hsb.b = pressed_state[i] & 0x7F;
+                hsb.h = 0;
+                rgb = hsb_to_rgb(hsb_scale_min_max(hsb));
+                if ((pressed_state[i] & 0x80) == 0)
+                    pressed_state[i] = pressed_state[i] >> 1;
+                // rgb.g = 0;
+                // rgb.b = 0;
+                // rgb.r = pressed_state[i];
+            } else {
+                rgb.r = 0;
+                rgb.g = 0;
+                rgb.b = 0;
+            }
+            pixels[i] = rgb;
+        }
+    //}
+    // for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
+    //     pixels[i] = rgb; 
+    // }
+}
+
+
+static void zmk_rgb_underglow_effect_none(void) {
+    struct led_rgb rgb = {0};
+    for (int i = 0; i < STRIP_NUM_PIXELS; i++)
+        pixels[i] = rgb;
+}
+
+
 static void zmk_rgb_underglow_tick(struct k_work *work) {
     switch (state.current_effect) {
     case UNDERGLOW_EFFECT_SOLID:
@@ -188,6 +253,15 @@ static void zmk_rgb_underglow_tick(struct k_work *work) {
         break;
     case UNDERGLOW_EFFECT_SWIRL:
         zmk_rgb_underglow_effect_swirl();
+        break;
+    case UNDERGLOW_EFFECT_MY:
+        zmk_rgb_underglow_effect_my();
+        break;
+    case UNDERGLOW_EFFECT_NONE:
+        zmk_rgb_underglow_effect_none();
+        break;
+    case UNDERGLOW_EFFECT_PRESSED:
+        zmk_rgb_underglow_effect_pressed();
         break;
     }
 
@@ -519,5 +593,52 @@ ZMK_SUBSCRIPTION(rgb_underglow, zmk_activity_state_changed);
 #if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_AUTO_OFF_USB)
 ZMK_SUBSCRIPTION(rgb_underglow, zmk_usb_conn_state_changed);
 #endif
+
+
+static int position_state_changed_listener(const zmk_event_t *eh) {
+    
+    const uint8_t led_map[5*6*2] = {
+        28, 21, 20, 11, 10, 0, 0, 0, 0, 0, 0, 0,
+        27, 22, 19, 12, 9, 1, 0, 0, 0, 0, 0, 0,
+        26, 23, 18, 13, 8, 2, 0, 0, 0, 0, 0, 0,
+        25, 24, 17, 14, 7, 3, 0, 0, 0, 0, 0, 0,
+        0, 0, 16, 15, 6, 5, 4, 0, 0, 0, 0, 0,
+    };
+
+    const struct zmk_position_state_changed *ev = as_zmk_position_state_changed(eh);
+    
+    if (ev == NULL)
+        return ZMK_EV_EVENT_BUBBLE;
+
+    uint8_t position = ev->position;
+    if (position >= sizeof(led_map)) 
+        return ZMK_EV_EVENT_BUBBLE;    
+    
+    // bool is_left = (position % 12) < 6;
+
+    // #if defined(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+    //     if (!is_left)
+    //         return ZMK_EV_EVENT_BUBBLE;    
+    // #else
+    //     if (!is_left)
+    //         return ZMK_EV_EVENT_BUBBLE;    
+    // #endif
+
+    position = led_map[position];
+    if (position >= STRIP_NUM_PIXELS) 
+        return ZMK_EV_EVENT_BUBBLE;
+
+    if (state.current_effect == UNDERGLOW_EFFECT_PRESSED) {
+        if (ev->state) {
+            pressed_state[position] = 127 | 0x80;
+        } else {
+            pressed_state[position] = 20;
+        }
+    }
+    return ZMK_EV_EVENT_BUBBLE;
+}
+
+ZMK_LISTENER(my_position_events, position_state_changed_listener);
+ZMK_SUBSCRIPTION(my_position_events, zmk_position_state_changed);
 
 SYS_INIT(zmk_rgb_underglow_init, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);
