@@ -629,8 +629,10 @@ static int position_state_changed_listener(const zmk_event_t *eh) {
     if (state.current_effect == UNDERGLOW_EFFECT_PRESSED) {
         if (ev->state) {
             pressed_state[position] = 127 | 0x80;
+            LOG_DBG("Pressed %i", ev->position);
         } else {
             pressed_state[position] = 20;
+            LOG_DBG("Unpressed %i", ev->position);
         }
     }
     return ZMK_EV_EVENT_BUBBLE;
